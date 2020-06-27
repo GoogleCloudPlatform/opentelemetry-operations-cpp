@@ -15,7 +15,6 @@ cc_library(
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_googleapis//google/devtools/cloudtrace/v2:cloudtrace_cc_grpc",
         "@com_google_googleapis//google/devtools/cloudtrace/v2:cloudtrace_cc_proto",
-        "@com_google_googletest//:gtest_prod"
     ],
 )
 

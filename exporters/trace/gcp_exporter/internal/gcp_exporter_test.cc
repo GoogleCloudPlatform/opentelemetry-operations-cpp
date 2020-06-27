@@ -7,7 +7,9 @@
 #include "opentelemetry/core/timestamp.h"
 #include "google/devtools/cloudtrace/v2/tracing_mock.grpc.pb.h"
 
-using namespace testing;
+using testing::_;
+using testing::AtLeast;
+using testing::Return;
 using grpc::Status;
 
 constexpr int kByteSizeTraceId = 32;
@@ -28,9 +30,10 @@ public:
         setenv("GOOGLE_CLOUD_PROJECT_ID", "mock_project", 1);
     }
 
-    std::unique_ptr<GcpExporter> GetExporter(google::devtools::cloudtrace::v2::TraceService::StubInterface* mock_stub) 
+    std::unique_ptr<GcpExporter> GetExporter(cloudtrace_v2::TraceService::StubInterface* mock_stub) 
     {
-            return std::unique_ptr<GcpExporter>(new GcpExporter(mock_stub, GenerateRandomTraceId()));
+        return std::unique_ptr<GcpExporter>(new GcpExporter(std::unique_ptr<cloudtrace_v2::TraceService::StubInterface>(mock_stub),
+                                            GenerateRandomTraceId()));
     }
 
 private:
@@ -40,7 +43,6 @@ private:
         opentelemetry::sdk::common::Random::GenerateRandomBuffer(trace_id_buf);
         return trace::TraceId(trace_id_buf);
     }
-
 };
 
 
@@ -56,7 +58,7 @@ TEST_F(GcpExporterTestPeer, TestGeneralFunctionality)
     
     auto tracer = provider->GetTracer("Test Export");
 
-    auto span = tracer->StartSpan("Test Span");
+    auto test_span = tracer->StartSpan("Test Span");
 
     auto span_1 = tracer->StartSpan("Span 1");
     auto span_1_1 = tracer->StartSpan("Span 1.1");
@@ -72,9 +74,8 @@ TEST_F(GcpExporterTestPeer, TestGeneralFunctionality)
     span_2_2->End();
     span_2->End();
 
-    span->End();
+    test_span->End();
 }
-
 
 
 TEST_F(GcpExporterTestPeer, TestExportResults)
@@ -103,5 +104,5 @@ TEST_F(GcpExporterTestPeer, TestExportResults)
 }
 
 } // gcp
-} // exporters
+} // exporter
 OPENTELEMETRY_END_NAMESPACE

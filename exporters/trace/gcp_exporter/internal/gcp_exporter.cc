@@ -11,11 +11,14 @@ constexpr int kByteSizeTraceId = 32;
 constexpr char kProjectsPathStr[] = "projects/";
 constexpr char kTracesPathStr[] = "/traces/";
 constexpr char kSpansPathStr[] = "/spans/";
+constexpr char kGCPEnvVar[] = "GOOGLE_CLOUD_PROJECT_ID";
 
 
 OPENTELEMETRY_BEGIN_NAMESPACE
-namespace exporter {
-namespace gcp {
+namespace exporter 
+{
+namespace gcp 
+{
 
 
 /* ######################## HELPER FUNCTIONS ######################### */
@@ -55,10 +58,9 @@ trace::SpanId GenerateRandomSpanId()
 void SetStartTimestamp(const sdk::trace::SpanData* from_span, google::protobuf::Timestamp* proto)
 {
     std::chrono::nanoseconds unix_time_nanoseconds(from_span->GetStartTime().time_since_epoch().count());
-    auto time_in_seconds = std::chrono::duration_cast<std::chrono::seconds>(unix_time_nanoseconds);
-    proto->set_seconds(time_in_seconds.count());
-    auto time_in_nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(time_in_seconds);
-    proto->set_nanos(unix_time_nanoseconds.count()-time_in_nanoseconds.count());
+    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(unix_time_nanoseconds);
+    proto->set_seconds(seconds.count());
+    proto->set_nanos(unix_time_nanoseconds.count()-std::chrono::duration_cast<std::chrono::nanoseconds>(seconds).count());
 }
 
 
@@ -72,10 +74,9 @@ void SetEndTimestamp(const sdk::trace::SpanData* from_span, google::protobuf::Ti
 {
     std::chrono::nanoseconds unix_time_nanoseconds(from_span->GetStartTime().time_since_epoch().count()
                                                     + from_span->GetDuration().count());
-    auto time_in_seconds = std::chrono::duration_cast<std::chrono::seconds>(unix_time_nanoseconds);
-    proto->set_seconds(time_in_seconds.count());
-    auto time_in_nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(time_in_seconds);
-    proto->set_nanos(unix_time_nanoseconds.count()-time_in_nanoseconds.count());
+    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(unix_time_nanoseconds);
+    proto->set_seconds(seconds.count());
+    proto->set_nanos(unix_time_nanoseconds.count()-std::chrono::duration_cast<std::chrono::nanoseconds>(seconds).count());
 }
 
 
@@ -111,9 +112,9 @@ void ConvertSpans(const nostd::span<std::unique_ptr<sdk::trace::Recordable>> &sp
         //       context is available for a span, wherein we can just retrieve trace id from the parent
         // Convert bytes to hex
         std::array<char, kByteSizeTraceId> hex_trace_buf; trace_id_.ToLowerBase16(hex_trace_buf);
-        std::string hex_trace(hex_trace_buf.data(), kByteSizeTraceId);
+        const std::string hex_trace(hex_trace_buf.data(), kByteSizeTraceId);
         std::array<char, kByteSizeSpanId> hex_span_buf; span_id.ToLowerBase16(hex_span_buf);
-        std::string hex_span(hex_span_buf.data(), kByteSizeSpanId);
+        const std::string hex_span(hex_span_buf.data(), kByteSizeSpanId);
         
         // Set span id
         to_span->set_span_id(hex_span);
@@ -152,19 +153,13 @@ std::unique_ptr<google::devtools::cloudtrace::v2::TraceService::Stub> MakeServic
 }
 
 
-GcpExporter::GcpExporter()
-{
-    auto trace_service_stub = MakeServiceStub();
-    auto trace_id = GenerateRandomTraceId();
-    GcpExporter(trace_service_stub.release(), trace_id);
-}
+GcpExporter::GcpExporter() : GcpExporter(MakeServiceStub(), GenerateRandomTraceId()) {}
 
-GcpExporter::GcpExporter(google::devtools::cloudtrace::v2::TraceService::StubInterface* stub,
-                         trace::TraceId trace_id)
-{
-    trace_service_stub = std::unique_ptr<google::devtools::cloudtrace::v2::TraceService::StubInterface>(stub);
-    trace_id_ = trace_id;
-}
+
+GcpExporter::GcpExporter(std::unique_ptr<google::devtools::cloudtrace::v2::TraceService::StubInterface> stub,
+                         const trace::TraceId trace_id):
+    trace_service_stub_(std::move(stub)), trace_id_(trace_id) {}
+
 
 /* ############################### EXPORT FUNCTIONS ################################## */
 
@@ -179,20 +174,18 @@ sdk::trace::ExportResult GcpExporter::Export(
       const nostd::span<std::unique_ptr<sdk::trace::Recordable>> &spans) noexcept 
 {
     // Fetch project id
-    const std::string project_id(getenv("GOOGLE_CLOUD_PROJECT_ID"));
+    const std::string project_id(getenv(kGCPEnvVar));
 
     // Set up gRPC request
     google::devtools::cloudtrace::v2::BatchWriteSpansRequest request;
-    request.set_name("projects/" + project_id);
+    request.set_name(kProjectsPathStr + project_id);
 
     // Convert recordables to google protobufs
     ConvertSpans(spans, project_id, trace_id_, &request);
 
     google::protobuf::Empty response;
     grpc::ClientContext context;
-
-    // Send the RPC
-    grpc::Status status = trace_service_stub->BatchWriteSpans(&context, request, &response);
+    grpc::Status status = trace_service_stub_->BatchWriteSpans(&context, request, &response);
 
     // Check status and return results
     if(status.ok()){
