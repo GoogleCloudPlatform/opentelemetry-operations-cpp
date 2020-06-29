@@ -7,6 +7,7 @@ Resulting telemetry is exported to a user specified Google Cloud project.
 To build the example above, simple run the following command:
 ```
 bazel build //examples/trace/gcp_exporter:example_simple
+```
 
 # Running
 After building the example, run the following command but set your Google Project ID:
