@@ -1,0 +1,105 @@
+# Copyright 2019, OpenTelemetry Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+workspace(name = "io_opentelemetry_operations_cpp")
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+#gRPC
+http_archive(
+        name = "com_github_grpc_grpc",
+        strip_prefix = "grpc-master",
+        urls = ["https://github.com/grpc/grpc/archive/master.tar.gz"],
+)
+
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+
+grpc_deps()
+
+# grpc_deps() cannot load() its deps, this WORKSPACE has to do it.
+# See also: https://github.com/bazelbuild/bazel/issues/1943
+load(
+    "@build_bazel_rules_apple//apple:repositories.bzl",
+    "apple_rules_dependencies",
+)
+
+apple_rules_dependencies()
+
+load(
+    "@build_bazel_apple_support//lib:repositories.bzl",
+    "apple_support_dependencies",
+)
+
+apple_support_dependencies()
+
+# OpenTelemetry-cpp
+http_archive(
+        name = "io_opentelemetry_cpp",
+        strip_prefix = "opentelemetry-cpp-master",
+        urls = ["https://github.com/open-telemetry/opentelemetry-cpp/archive/master.zip"],
+)
+
+# Google APIs - used by GCP exporter.
+http_archive(
+    name = "com_google_googleapis",
+    strip_prefix = "googleapis-master",
+    urls = ["https://github.com/googleapis/googleapis/archive/master.zip"],
+)
+
+load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
+
+switched_rules_by_language(
+    name = "com_google_googleapis_imports",
+    cc = True,
+    grpc = True,
+)
+
+# Uses older protobuf version because of
+# https://github.com/protocolbuffers/protobuf/issues/7179
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "b679cef31102ed8beddc39ecfd6368ee311cbee6f50742f13f21be7278781821",
+    strip_prefix = "protobuf-3.11.2",
+    urls = [
+        "https://github.com/protocolbuffers/protobuf/releases/download/v3.11.2/protobuf-all-3.11.2.tar.gz",
+    ],
+)
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
+
+new_local_repository(
+    name = "com_github_opentelemetry_proto",
+    build_file = "//bazel:opentelemetry_proto.BUILD",
+    path = "third_party/opentelemetry-proto",
+)
+
+# GoogleTest framework.
+# Only needed for tests, not to build the OpenTelemetry library.
+http_archive(
+    name = "com_google_googletest",
+    sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",
+    strip_prefix = "googletest-release-1.10.0",
+    urls = ["https://github.com/google/googletest/archive/release-1.10.0.tar.gz"],
+)
+
+# Google Benchmark library.
+# Only needed for benchmarks, not to build the OpenTelemetry library.
+http_archive(
+    name = "com_github_google_benchmark",
+    sha256 = "3c6a165b6ecc948967a1ead710d4a181d7b0fbcaa183ef7ea84604994966221a",
+    strip_prefix = "benchmark-1.5.0",
+    urls = ["https://github.com/google/benchmark/archive/v1.5.0.tar.gz"],
+)
