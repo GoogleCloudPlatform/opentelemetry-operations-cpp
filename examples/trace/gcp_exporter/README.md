@@ -18,4 +18,5 @@ env STACKDRIVER_PROJECT_ID=<myproject> ./bazel-bin/examples/trace/gcp_exporter/e
 # Results
 
 These are the exported traces as viewed on GCP:
+
 ![image](https://user-images.githubusercontent.com/31712484/86039505-5d347100-b9f7-11ea-865c-0e9bcf9894b8.png)
