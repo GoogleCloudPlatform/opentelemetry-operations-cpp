@@ -1,0 +1,114 @@
+#include "exporters/trace/gcp_exporter/recordable.h"
+#include <gtest/gtest.h>
+
+OPENTELEMETRY_BEGIN_NAMESPACE
+namespace exporter
+{
+namespace gcp
+{
+
+TEST(Recordable, TestSetAttribute)
+{
+    Recordable rec;
+
+    // Set 'bool' type
+    const nostd::string_view bool_key = "bool_key";
+    const common::AttributeValue bool_value = true;
+    rec.SetAttribute(bool_key, std::move(bool_value));
+
+    // Set 'integer' type
+    const nostd::string_view int_key = "int_key";
+    const int64_t seven = 7;
+    const common::AttributeValue int_value = seven;
+    rec.SetAttribute(int_key, std::move(int_value));
+
+    // Set 'string' type
+    const nostd::string_view string_key = "string_key";
+    const common::AttributeValue string_value = "test";
+    rec.SetAttribute(string_key, std::move(string_value));
+
+    auto attr_map = rec.span().attributes().attribute_map();
+    
+    EXPECT_TRUE(attr_map["bool_key"].bool_value());
+    EXPECT_EQ(attr_map["int_key"].int_value(), seven);
+    EXPECT_EQ(attr_map["string_key"].string_value().value(), "test");
+}
+
+TEST(Recordable, TestSetIds)
+{
+    const opentelemetry::trace::TraceId trace_id(
+    std::array<const uint8_t, opentelemetry::trace::TraceId::kSize>(
+    {0, 1, 0, 3, 4, 8, 15, 34, 32, 78, 0, 0, 3, 2, 0, 1}));
+
+    const opentelemetry::trace::SpanId span_id(
+    std::array<const uint8_t, opentelemetry::trace::SpanId::kSize>(
+    {68, 23, 16, 0, 77, 2, 0, 2}));
+
+    const opentelemetry::trace::SpanId parent_span_id(
+    std::array<const uint8_t, opentelemetry::trace::SpanId::kSize>(
+    {4, 5, 0, 1, 1, 1, 1, 3}));
+
+    Recordable rec;
+
+    rec.SetIds(trace_id, span_id, parent_span_id);
+
+    EXPECT_EQ(rec.span().span_id(),
+            std::string(reinterpret_cast<const char *>(span_id.Id().data()), trace::SpanId::kSize));
+    EXPECT_EQ(rec.span().parent_span_id(),
+            std::string(reinterpret_cast<const char *>(parent_span_id.Id().data()), trace::SpanId::kSize));
+}
+
+
+TEST(Recordable, TestSetName)
+{
+    Recordable rec;
+    const nostd::string_view expected_name = "Test Span";
+    rec.SetName(expected_name);
+    EXPECT_EQ(rec.span().display_name().value(), expected_name);
+}
+
+
+TEST(Recordable, TestSetStartTime)
+{
+    Recordable rec;
+
+    const std::chrono::system_clock::time_point start_time = std::chrono::system_clock::now();
+    const core::SystemTimestamp start_timestamp(start_time);
+
+    const int64_t expected_unix_start_time = std::chrono::duration_cast<std::chrono::nanoseconds>(start_time.time_since_epoch()).count();
+
+    rec.SetStartTime(start_timestamp);
+
+    const std::chrono::nanoseconds start_time_nanos(reinterpret_cast<int32_t>(rec.span().start_time().nanos()));
+    const std::chrono::seconds start_time_seconds(reinterpret_cast<int64_t>(rec.span().start_time().seconds()));
+    const std::chrono::nanoseconds unix_start_time(std::chrono::duration_cast<std::chrono::nanoseconds>(start_time_seconds).count() 
+                                             + start_time_nanos.count()); 
+
+    EXPECT_EQ(expected_unix_start_time, unix_start_time.count());
+}
+
+
+TEST(Recordable, TestSetDuration)
+{
+    Recordable rec;
+
+    const std::chrono::system_clock::time_point start_time = std::chrono::system_clock::now();
+    const core::SystemTimestamp start_timestamp(start_time);
+    const std::chrono::nanoseconds duration(10);
+
+    const int64_t expected_unix_end_time = start_timestamp.time_since_epoch().count() + duration.count();
+
+    rec.SetStartTime(start_timestamp);
+    rec.SetDuration(duration);
+
+    const std::chrono::nanoseconds end_time_nanos(reinterpret_cast<int32_t>(rec.span().end_time().nanos()));
+    const std::chrono::seconds end_time_seconds(reinterpret_cast<int64_t>(rec.span().end_time().seconds()));
+    const std::chrono::nanoseconds unix_end_time(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_seconds).count() 
+                                             + end_time_nanos.count());    
+
+    EXPECT_EQ(expected_unix_end_time, unix_end_time.count());
+}
+
+}  // namespace gcp
+}  // namespace exporter
+OPENTELEMETRY_END_NAMESPACE
