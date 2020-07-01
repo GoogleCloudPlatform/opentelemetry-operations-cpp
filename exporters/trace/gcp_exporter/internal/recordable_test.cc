@@ -30,8 +30,8 @@ TEST(Recordable, TestSetAttribute)
     auto attr_map = rec.span().attributes().attribute_map();
     
     EXPECT_TRUE(attr_map["bool_key"].bool_value());
-    EXPECT_EQ(attr_map["int_key"].int_value(), seven);
-    EXPECT_EQ(attr_map["string_key"].string_value().value(), "test");
+    EXPECT_EQ(seven, attr_map["int_key"].int_value());
+    EXPECT_EQ("test", attr_map["string_key"].string_value().value());
 }
 
 TEST(Recordable, TestSetIds)
@@ -52,10 +52,8 @@ TEST(Recordable, TestSetIds)
 
     rec.SetIds(trace_id, span_id, parent_span_id);
 
-    EXPECT_EQ(rec.span().span_id(),
-            std::string(reinterpret_cast<const char *>(span_id.Id().data()), trace::SpanId::kSize));
-    EXPECT_EQ(rec.span().parent_span_id(),
-            std::string(reinterpret_cast<const char *>(parent_span_id.Id().data()), trace::SpanId::kSize));
+    EXPECT_EQ(std::string(reinterpret_cast<const char *>(span_id.Id().data()), trace::SpanId::kSize), rec.span().span_id());
+    EXPECT_EQ(std::string(reinterpret_cast<const char *>(parent_span_id.Id().data()), trace::SpanId::kSize), rec.span().parent_span_id());
 }
 
 
@@ -64,7 +62,7 @@ TEST(Recordable, TestSetName)
     Recordable rec;
     const nostd::string_view expected_name = "Test Span";
     rec.SetName(expected_name);
-    EXPECT_EQ(rec.span().display_name().value(), expected_name);
+    EXPECT_EQ(expected_name, rec.span().display_name().value());
 }
 
 

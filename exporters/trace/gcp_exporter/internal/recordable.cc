@@ -1,4 +1,5 @@
 #include "exporters/trace/gcp_exporter/recordable.h"
+#include <assert.h>
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace exporter
@@ -20,6 +21,10 @@ void Recordable::SetIds(trace::TraceId trace_id,
 void Recordable::SetAttribute(nostd::string_view key,
                               const common::AttributeValue &&value) noexcept
 {
+    assert(nostd::holds_alternative<bool>(value) ||
+           nostd::holds_alternative<int64_t>(value) ||
+           nostd::holds_alternative<nostd::string_view>(value));
+
     // Get the protobuf span's map
     auto map = span_.mutable_attributes()->mutable_attribute_map();
 
