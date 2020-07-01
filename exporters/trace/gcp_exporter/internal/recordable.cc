@@ -1,6 +1,13 @@
 #include "exporters/trace/gcp_exporter/recordable.h"
 #include <assert.h>
 
+
+constexpr char kProjectsPathStr[] = "projects/";
+constexpr char kTracesPathStr[] = "/traces/";
+constexpr char kSpansPathStr[] = "/spans/";
+constexpr char kGCPEnvVar[] = "GOOGLE_CLOUD_PROJECT_ID";
+
+
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace exporter
 {
@@ -11,10 +18,24 @@ void Recordable::SetIds(trace::TraceId trace_id,
                         trace::SpanId span_id,
                         trace::SpanId parent_span_id) noexcept
 {
-    (void)trace_id;
-    span_.set_span_id(reinterpret_cast<const char *>(span_id.Id().data()), trace::SpanId::kSize);
-    span_.set_parent_span_id(reinterpret_cast<const char *>(parent_span_id.Id().data()),
-                            trace::SpanId::kSize);
+    std::array<char, 2*trace::TraceId::kSize> hex_trace_buf; 
+    trace_id.ToLowerBase16(hex_trace_buf);
+    const std::string hex_trace(hex_trace_buf.data(), trace::TraceId::kSize);
+
+    std::array<char, 2*trace::SpanId::kSize> hex_span_buf; 
+    span_id.ToLowerBase16(hex_span_buf);
+    const std::string hex_span(hex_span_buf.data(), trace::SpanId::kSize);
+
+    std::array<char, 2*trace::SpanId::kSize> hex_parent_span_buf; 
+    parent_span_id.ToLowerBase16(hex_parent_span_buf);
+    const std::string hex_parent_span(hex_parent_span_buf.data(), trace::SpanId::kSize);
+
+    // Get Project Id
+    const std::string project_id(getenv(kGCPEnvVar));
+    
+    span_.set_name(kProjectsPathStr + project_id + kTracesPathStr + hex_trace + kSpansPathStr + hex_span);
+    span_.set_span_id(hex_span);
+    span_.set_parent_span_id(hex_parent_span);
 }
 
 

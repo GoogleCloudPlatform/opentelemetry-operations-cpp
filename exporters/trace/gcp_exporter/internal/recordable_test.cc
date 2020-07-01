@@ -36,13 +36,15 @@ TEST(Recordable, TestSetAttribute)
 
 TEST(Recordable, TestSetIds)
 {
+    setenv("GOOGLE_CLOUD_PROJECT_ID", "test_project", 1);
+
     const opentelemetry::trace::TraceId trace_id(
     std::array<const uint8_t, opentelemetry::trace::TraceId::kSize>(
-    {0, 1, 0, 3, 4, 8, 15, 34, 32, 78, 0, 0, 3, 2, 0, 1}));
+    {0, 1, 0, 2, 1, 3, 1, 4, 1, 5, 1, 6, 3, 7, 0, 0}));
 
     const opentelemetry::trace::SpanId span_id(
     std::array<const uint8_t, opentelemetry::trace::SpanId::kSize>(
-    {68, 23, 16, 0, 77, 2, 0, 2}));
+    {1, 2, 3, 4, 5, 6, 7, 8}));
 
     const opentelemetry::trace::SpanId parent_span_id(
     std::array<const uint8_t, opentelemetry::trace::SpanId::kSize>(
@@ -52,8 +54,9 @@ TEST(Recordable, TestSetIds)
 
     rec.SetIds(trace_id, span_id, parent_span_id);
 
-    EXPECT_EQ(std::string(reinterpret_cast<const char *>(span_id.Id().data()), trace::SpanId::kSize), rec.span().span_id());
-    EXPECT_EQ(std::string(reinterpret_cast<const char *>(parent_span_id.Id().data()), trace::SpanId::kSize), rec.span().parent_span_id());
+    EXPECT_EQ("projects/test_project/traces/0001000201030104/spans/01020304", rec.span().name());
+    EXPECT_EQ("01020304", rec.span().span_id());
+    EXPECT_EQ("04050001", rec.span().parent_span_id());
 }
 
 
