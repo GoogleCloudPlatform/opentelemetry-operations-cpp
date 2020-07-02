@@ -54,9 +54,10 @@ TEST(Recordable, TestSetIds)
 
     rec.SetIds(trace_id, span_id, parent_span_id);
 
-    EXPECT_EQ("projects/test_project/traces/0001000201030104/spans/01020304", rec.span().name());
-    EXPECT_EQ("01020304", rec.span().span_id());
-    EXPECT_EQ("04050001", rec.span().parent_span_id());
+    EXPECT_EQ("projects/test_project/traces/00010002010301040105010603070000/spans/0102030405060708", 
+               rec.span().name());
+    EXPECT_EQ("0102030405060708", rec.span().span_id());
+    EXPECT_EQ("0405000101010103", rec.span().parent_span_id());
 }
 
 
@@ -76,14 +77,16 @@ TEST(Recordable, TestSetStartTime)
     const std::chrono::system_clock::time_point start_time = std::chrono::system_clock::now();
     const core::SystemTimestamp start_timestamp(start_time);
 
-    const int64_t expected_unix_start_time = std::chrono::duration_cast<std::chrono::nanoseconds>(start_time.time_since_epoch()).count();
+    const int64_t expected_unix_start_time = 
+        std::chrono::duration_cast<std::chrono::nanoseconds>(start_time.time_since_epoch()).count();
 
     rec.SetStartTime(start_timestamp);
 
-    const std::chrono::nanoseconds start_time_nanos(reinterpret_cast<int32_t>(rec.span().start_time().nanos()));
-    const std::chrono::seconds start_time_seconds(reinterpret_cast<int64_t>(rec.span().start_time().seconds()));
-    const std::chrono::nanoseconds unix_start_time(std::chrono::duration_cast<std::chrono::nanoseconds>(start_time_seconds).count() 
-                                             + start_time_nanos.count()); 
+    const std::chrono::nanoseconds start_time_nanos(rec.span().start_time().nanos());
+    const std::chrono::seconds start_time_seconds(rec.span().start_time().seconds());
+    const std::chrono::nanoseconds unix_start_time(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(start_time_seconds).count() 
+        + start_time_nanos.count()); 
 
     EXPECT_EQ(expected_unix_start_time, unix_start_time.count());
 }
@@ -102,10 +105,11 @@ TEST(Recordable, TestSetDuration)
     rec.SetStartTime(start_timestamp);
     rec.SetDuration(duration);
 
-    const std::chrono::nanoseconds end_time_nanos(reinterpret_cast<int32_t>(rec.span().end_time().nanos()));
-    const std::chrono::seconds end_time_seconds(reinterpret_cast<int64_t>(rec.span().end_time().seconds()));
-    const std::chrono::nanoseconds unix_end_time(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_seconds).count() 
-                                             + end_time_nanos.count());    
+    const std::chrono::nanoseconds end_time_nanos(rec.span().end_time().nanos());
+    const std::chrono::seconds end_time_seconds(rec.span().end_time().seconds());
+    const std::chrono::nanoseconds unix_end_time(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end_time_seconds).count() 
+        + end_time_nanos.count());    
 
     EXPECT_EQ(expected_unix_end_time, unix_end_time.count());
 }

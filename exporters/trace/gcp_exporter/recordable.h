@@ -6,6 +6,12 @@
 #include "opentelemetry/nostd/variant.h"
 
 
+constexpr char kProjectsPathStr[] = "projects/";
+constexpr char kTracesPathStr[] = "/traces/";
+constexpr char kSpansPathStr[] = "/spans/";
+constexpr char kGCPEnvVar[] = "GOOGLE_CLOUD_PROJECT_ID";
+
+
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace exporter
 {
