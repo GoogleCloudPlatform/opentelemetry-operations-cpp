@@ -42,12 +42,8 @@ cc_library(
     srcs = ["internal/gcp_exporter.cc"],
     hdrs = ["gcp_exporter.h"],
     deps = [
-        "@io_opentelemetry_cpp//api",
-        "@io_opentelemetry_cpp//sdk/src/trace",
-        "@io_opentelemetry_cpp//sdk/src/common:random",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_googleapis//google/devtools/cloudtrace/v2:cloudtrace_cc_grpc",
-        "@com_google_googleapis//google/devtools/cloudtrace/v2:cloudtrace_cc_proto"
+        ":recordable",
+        "@io_opentelemetry_cpp//sdk/src/trace"
     ],
 )
 

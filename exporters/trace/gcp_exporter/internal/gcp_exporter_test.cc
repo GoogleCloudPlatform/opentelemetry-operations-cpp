@@ -12,7 +12,6 @@ using testing::AtLeast;
 using testing::Return;
 using grpc::Status;
 
-constexpr int kByteSizeTraceId = 32;
 namespace gcp = opentelemetry::exporter::gcp;
 namespace cloudtrace_v2 = google::devtools::cloudtrace::v2;
 
@@ -24,24 +23,10 @@ namespace gcp {
 class GcpExporterTestPeer : public ::testing::Test
 {
 public:
-    virtual void SetUp()
-    {
-        // Set GOOGLE_CLOUD_PROJECT_ID environment variable
-        setenv("GOOGLE_CLOUD_PROJECT_ID", "mock_project", 1);
-    }
-
     std::unique_ptr<GcpExporter> GetExporter(cloudtrace_v2::TraceService::StubInterface* mock_stub) 
     {
         return std::unique_ptr<GcpExporter>(new GcpExporter(std::unique_ptr<cloudtrace_v2::TraceService::StubInterface>(mock_stub),
-                                            GenerateRandomTraceId()));
-    }
-
-private:
-    trace::TraceId GenerateRandomTraceId() 
-    {
-        uint8_t trace_id_buf[trace::TraceId::kSize];
-        opentelemetry::sdk::common::Random::GenerateRandomBuffer(trace_id_buf);
-        return trace::TraceId(trace_id_buf);
+                                            "test_project"));
     }
 };
 
