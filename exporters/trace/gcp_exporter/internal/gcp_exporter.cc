@@ -54,7 +54,7 @@ sdk::trace::ExportResult GcpExporter::Export(
     google::devtools::cloudtrace::v2::BatchWriteSpansRequest request;
     request.set_name(kProjectsPathStr + project_id_);
     for(auto& recordable: spans){
-        auto span = static_cast<Recordable*>(recordable.release());
+        auto span = std::unique_ptr<Recordable>(static_cast<Recordable*>(recordable.release()));
         *request.add_spans() = std::move(span->span());
     }
 

@@ -3,8 +3,6 @@
 #include "opentelemetry/sdk/trace/exporter.h"
 #include "exporters/trace/gcp_exporter/recordable.h"
 
-#include <iostream>
-#include <functional>
 #include <memory>
 #include <string>
 
