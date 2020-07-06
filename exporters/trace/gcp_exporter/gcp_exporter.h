@@ -1,12 +1,8 @@
 #pragma once
 
 #include "opentelemetry/sdk/trace/exporter.h"
-#include "opentelemetry/sdk/trace/span_data.h"
-#include "google/devtools/cloudtrace/v2/tracing.grpc.pb.h"
-#include "src/common/random.h"
+#include "exporters/trace/gcp_exporter/recordable.h"
 
-#include <iostream>
-#include <functional>
 #include <memory>
 #include <string>
 
@@ -49,20 +45,20 @@ private:
     friend class GcpExporterTestPeer;
 
     /**
-     * Internal constructor to initialize trace id and the RPC communication stub
+     * Internal constructor to initialize the RPC communication stub and the Google project ID
      * Helps with testing purposes by injecting a mock stub
      * 
      * @param stub - The stub to inject into the member variable 'trace_service_stub_'
-     * @param trace_id - The randomly generated trace id for the current trace
+     * @param project_id - The Id of the Google Cloud project to export the traces to 
      */
     explicit GcpExporter(std::unique_ptr<google::devtools::cloudtrace::v2::TraceService::StubInterface> stub,
-                         const trace::TraceId trace_id);
+                         const char* project_id);
 
-    /* The stub to communicate via gRPC to the Google cloud */
+    /* The stub to communicate via gRPC to the Google Cloud */
     const std::unique_ptr<google::devtools::cloudtrace::v2::TraceService::StubInterface> trace_service_stub_;
 
-    /* NOTE: This is subject to change as currently we have no parent context for a span in OT */
-    const trace::TraceId trace_id_;
+    /* The Id of the Google Cloud project to export the traces to */
+    const std::string project_id_;
 };
 
 } // gcp
