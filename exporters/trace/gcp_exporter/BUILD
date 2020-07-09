@@ -16,6 +16,8 @@ licenses(["notice"])  # Apache License 2.0
 
 package(default_visibility = ["//visibility:public"])
 
+load("@io_opentelemetry_cpp//bazel:otel_cc_benchmark.bzl", "otel_cc_benchmark")
+
 # Libraries
 # ========================================================================= #
 
@@ -69,5 +71,17 @@ cc_test(
         "@io_opentelemetry_cpp//sdk/src/trace",
         "@io_opentelemetry_cpp//api",
         "@com_google_googletest//:gtest_main"
+    ],
+)
+
+# Benchmarks
+# ========================================================================= #
+
+otel_cc_benchmark(
+    name = "gcp_exporter_benchmark",
+    srcs = ["internal/gcp_exporter_benchmark.cc"],
+    deps = [
+        ":gcp_exporter",
+        "@io_opentelemetry_cpp//api",
     ],
 )

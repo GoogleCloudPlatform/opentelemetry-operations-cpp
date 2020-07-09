@@ -41,8 +41,11 @@ public:
     void Shutdown(std::chrono::microseconds timeout = std::chrono::microseconds(0)) noexcept {}
 
 private:
-     /* Test Class meant for testing purposes only */
+    /* Test Fixture Class meant for testing purposes only */
     friend class GcpExporterTestPeer;
+
+    /* Fixture Class for benchmark purposes only */
+    friend class GcpExporterBenchmark;
 
     /**
      * Internal constructor to initialize the RPC communication stub and the Google project ID
