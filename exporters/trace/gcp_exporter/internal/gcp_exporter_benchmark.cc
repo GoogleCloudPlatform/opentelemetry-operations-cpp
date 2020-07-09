@@ -1,11 +1,10 @@
 #include <benchmark/benchmark.h>
 #include "exporters/trace/gcp_exporter/gcp_exporter.h"
-#include "opentelemetry/nostd/span.h"
 
 namespace cloudtrace_v2 = google::devtools::cloudtrace::v2;
 
 // These constants affect the overall runtime of the benchmark tests
-constexpr int kNumSpans = 100;
+constexpr int kNumSpans = 200;
 constexpr int kNumIntAttributes = 30;
 constexpr int kNumStrAttributes = 30;
 constexpr int kNumBoolAttributes = 30;
@@ -26,64 +25,46 @@ namespace gcp
 class MockStub final : public cloudtrace_v2::TraceService::StubInterface 
 {
 public:
-  grpc::Status BatchWriteSpans(grpc::ClientContext* context,
-                               const cloudtrace_v2::BatchWriteSpansRequest& request, 
-                               google::protobuf::Empty* response)
+  grpc::Status BatchWriteSpans(grpc::ClientContext*,
+                               const cloudtrace_v2::BatchWriteSpansRequest&, 
+                               google::protobuf::Empty*)
   {
-    (void) context;
-    (void) request;
-    (void) response;
     return grpc::Status::OK;
   }
 
-  grpc::Status CreateSpan(grpc::ClientContext* context, 
-                          const cloudtrace_v2::Span& request, 
-                          cloudtrace_v2::Span* response)
+  grpc::Status CreateSpan(grpc::ClientContext*, 
+                          const cloudtrace_v2::Span&, 
+                          cloudtrace_v2::Span*)
   {
-    (void) context;
-    (void) request;
-    (void) response;
     return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "");
   }
 
 private:
-  grpc::ClientAsyncResponseReaderInterface<google::protobuf::Empty>* AsyncBatchWriteSpansRaw(grpc::ClientContext* context, 
-                                                                                             const cloudtrace_v2::BatchWriteSpansRequest& request, 
-                                                                                             grpc::CompletionQueue* cq)
+  grpc::ClientAsyncResponseReaderInterface<google::protobuf::Empty>* AsyncBatchWriteSpansRaw(grpc::ClientContext*, 
+                                                                                             const cloudtrace_v2::BatchWriteSpansRequest&, 
+                                                                                             grpc::CompletionQueue*)
   {
-    (void) context;
-    (void) request;
-    (void) cq;
     return nullptr;
   }
 
-  grpc::ClientAsyncResponseReaderInterface<google::protobuf::Empty>* PrepareAsyncBatchWriteSpansRaw(grpc::ClientContext* context, 
-                                                                                                    const cloudtrace_v2::BatchWriteSpansRequest& request, 
-                                                                                                    grpc::CompletionQueue* cq)
+  grpc::ClientAsyncResponseReaderInterface<google::protobuf::Empty>* PrepareAsyncBatchWriteSpansRaw(grpc::ClientContext*, 
+                                                                                                    const cloudtrace_v2::BatchWriteSpansRequest&, 
+                                                                                                    grpc::CompletionQueue*)
   {
-    (void) context;
-    (void) request;
-    (void) cq;
     return nullptr;
   }
 
-  grpc::ClientAsyncResponseReaderInterface<cloudtrace_v2::Span>* AsyncCreateSpanRaw(grpc::ClientContext* context, 
-                                                                                    const cloudtrace_v2::Span& request, 
-                                                                                    grpc::CompletionQueue* cq)
+  grpc::ClientAsyncResponseReaderInterface<cloudtrace_v2::Span>* AsyncCreateSpanRaw(grpc::ClientContext*, 
+                                                                                    const cloudtrace_v2::Span&, 
+                                                                                    grpc::CompletionQueue*)
   {
-    (void) context;
-    (void) request;
-    (void) cq;
     return nullptr;
   }
 
-  grpc::ClientAsyncResponseReaderInterface<cloudtrace_v2::Span>* PrepareAsyncCreateSpanRaw(grpc::ClientContext* context, 
-                                                                                           const cloudtrace_v2::Span& request, 
-                                                                                           grpc::CompletionQueue* cq)
+  grpc::ClientAsyncResponseReaderInterface<cloudtrace_v2::Span>* PrepareAsyncCreateSpanRaw(grpc::ClientContext*, 
+                                                                                           const cloudtrace_v2::Span&, 
+                                                                                           grpc::CompletionQueue*)
   {
-    (void) context;
-    (void) request;
-    (void) cq;
     return nullptr;
   };
 
@@ -112,6 +93,23 @@ public:
     return std::unique_ptr<GcpExporter>(new GcpExporter(std::unique_ptr<cloudtrace_v2::TraceService::StubInterface>(mock_stub),
                                         "test_project"));
   }
+
+
+  /**
+   * Generates a batch of empty spans
+   * 
+   * @param empty_spans - The array to populate with the generated empty spans 
+   */
+  void GenerateEmptySpans(std::array<std::unique_ptr<sdk::trace::Recordable>, kNumSpans>& empty_spans){
+    for(int i = 0; i < kNumSpans; ++i){
+      // Make the span
+      auto rec = std::unique_ptr<sdk::trace::Recordable>(new Recordable);
+
+      // Add to array
+      empty_spans[i] = std::move(rec);
+    }
+  }
+
 
   /**
    * Generates a batch of lightweight spans
@@ -196,7 +194,20 @@ private:
 
 /* ################################## BENCHMARKS ######################################## */
 
-BENCHMARK_F(GcpExporterBenchmark, SparseExportTest)(benchmark::State& state) {
+BENCHMARK_F(GcpExporterBenchmark, EmptySpansExportTest)(benchmark::State& state) {
+  // Get mock exporter
+  const auto gcp_exporter = GetMockExporter();
+
+  while(state.KeepRunningBatch(kNumIterations))
+  {
+    std::array<std::unique_ptr<sdk::trace::Recordable>, kNumSpans> recordables;
+    GenerateEmptySpans(recordables);
+    gcp_exporter->Export(nostd::span<std::unique_ptr<sdk::trace::Recordable>>(recordables));
+  }
+}
+
+
+BENCHMARK_F(GcpExporterBenchmark, SparseSpansExportTest)(benchmark::State& state) {
   // Get mock exporter
   const auto gcp_exporter = GetMockExporter();
 
@@ -208,7 +219,8 @@ BENCHMARK_F(GcpExporterBenchmark, SparseExportTest)(benchmark::State& state) {
   }
 }
 
-BENCHMARK_F(GcpExporterBenchmark, DenseExportTest)(benchmark::State& state) {
+
+BENCHMARK_F(GcpExporterBenchmark, DenseSpansExportTest)(benchmark::State& state) {
   // Get mock exporter
   const auto gcp_exporter = GetMockExporter();
 
