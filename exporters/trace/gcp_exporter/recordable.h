@@ -31,14 +31,12 @@ public:
 
   void AddEvent(
       nostd::string_view name,
-      core::SystemTimestamp timestamp = core::SystemTimestamp(std::chrono::system_clock::now()),
-      const opentelemetry::trace::KeyValueIterable &attributes =
-          opentelemetry::trace::KeyValueIterableView<std::map<std::string, int>>({})) noexcept override;
+      core::SystemTimestamp timestamp,
+      const opentelemetry::trace::KeyValueIterable &attributes) noexcept override;
 
   void AddLink(
       opentelemetry::trace::SpanContext span_context,
-      const opentelemetry::trace::KeyValueIterable &attributes =
-          opentelemetry::trace::KeyValueIterableView<std::map<std::string, int>>({})) noexcept override;
+      const opentelemetry::trace::KeyValueIterable &attributes) noexcept override;
 
   void SetStatus(opentelemetry::trace::CanonicalCode code,
                          nostd::string_view description) noexcept override;

@@ -7,7 +7,7 @@ namespace exporter
 namespace gcp
 {
 
-TEST(Recordable, TestSetAttribute)
+TEST(Recordable, TestSetNonIntAttribute)
 {
     Recordable rec;
 
@@ -15,30 +15,6 @@ TEST(Recordable, TestSetAttribute)
     const nostd::string_view bool_key = "bool_key";
     const common::AttributeValue bool_value = true;
     rec.SetAttribute(bool_key, std::move(bool_value));
-
-    // Set 'int' type
-    const nostd::string_view int_key = "int_key";
-    const int seven_int = 7;
-    const common::AttributeValue int_value = seven_int;
-    rec.SetAttribute(int_key, std::move(int_value));
-
-    // Set 'int64_t' type
-    const nostd::string_view int64_t_key = "int64_t_key";
-    const int64_t seven_int64_t = 7;
-    const common::AttributeValue int64_t_value = seven_int64_t;
-    rec.SetAttribute(int64_t_key, std::move(int64_t_value));
-
-    // Set 'uint64_t' type
-    const nostd::string_view uint64_t_key = "uint64_t_key";
-    const uint64_t seven_uint64_t = 7;
-    const common::AttributeValue uint64_t_value = seven_uint64_t;
-    rec.SetAttribute(uint64_t_key, std::move(uint64_t_value));
-
-    // Set 'unsigned int' type
-    const nostd::string_view unsigned_int_key = "unsigned_int_key";
-    const int64_t seven_unsigned_int = 7;
-    const common::AttributeValue unsigned_int_value = seven_unsigned_int;
-    rec.SetAttribute(unsigned_int_key, std::move(unsigned_int_value));
 
     // Set 'string' type
     const nostd::string_view string_key = "string_key";
@@ -48,11 +24,30 @@ TEST(Recordable, TestSetAttribute)
     auto attr_map = rec.span().attributes().attribute_map();
     
     EXPECT_TRUE(attr_map["bool_key"].bool_value());
-    EXPECT_EQ(seven_int, attr_map["int_key"].int_value());
-    EXPECT_EQ(seven_uint64_t, attr_map["uint64_t_key"].int_value());
-    EXPECT_EQ(seven_int64_t, attr_map["int64_t_key"].int_value());
-    EXPECT_EQ(seven_unsigned_int, attr_map["unsigned_int_key"].int_value());
     EXPECT_EQ("test", attr_map["string_key"].string_value().value());
+}
+
+template <typename T>
+struct IntAttributeTest : public testing::Test
+{
+    using IntParamType = T;
+};
+
+using IntTypes = testing::Types<int, int64_t, unsigned int, uint64_t>;
+TYPED_TEST_CASE(IntAttributeTest, IntTypes);
+
+TYPED_TEST(IntAttributeTest, SetIntSingleAttribute)
+{
+    using IntType = typename TestFixture::IntParamType;
+    IntType i     = 2;
+    common::AttributeValue int_val(i);
+
+    Recordable rec;
+    rec.SetAttribute("int_key", int_val);
+
+    auto attr_map = rec.span().attributes().attribute_map();
+
+    EXPECT_EQ(nostd::get<IntType>(int_val), attr_map["int_key"].int_value());
 }
 
 TEST(Recordable, TestSetIds)
