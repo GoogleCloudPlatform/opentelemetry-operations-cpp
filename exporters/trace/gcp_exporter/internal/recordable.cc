@@ -36,7 +36,7 @@ void Recordable::SetAttribute(nostd::string_view key,
                               const common::AttributeValue &value) noexcept
 {
     // Get the protobuf span's map
-    auto map = span_.mutable_attributes()->mutable_attribute_map();
+    auto* map = span_.mutable_attributes()->mutable_attribute_map();
 
     if(nostd::holds_alternative<bool>(value))
     {
