@@ -1,5 +1,4 @@
 #include "exporters/trace/gcp_exporter/recordable.h"
-#include <assert.h>
 
 
 OPENTELEMETRY_BEGIN_NAMESPACE
@@ -34,31 +33,60 @@ void Recordable::SetIds(trace::TraceId trace_id,
 
 
 void Recordable::SetAttribute(nostd::string_view key,
-                              const common::AttributeValue &&value) noexcept
+                              const common::AttributeValue &value) noexcept
 {
     // Get the protobuf span's map
-    auto map = span_.mutable_attributes()->mutable_attribute_map();
+    auto* map = span_.mutable_attributes()->mutable_attribute_map();
 
     if(nostd::holds_alternative<bool>(value))
     {
-        (*map)[std::string(key)].set_bool_value(nostd::get<bool>(value));
+        (*map)[key.data()].set_bool_value(nostd::get<bool>(value));
     } 
+    else if (nostd::holds_alternative<int>(value))
+    {
+        (*map)[key.data()].set_int_value(nostd::get<int>(value));
+    }
     else if (nostd::holds_alternative<int64_t>(value))
     {
-        (*map)[std::string(key)].set_int_value(nostd::get<int64_t>(value));
+        (*map)[key.data()].set_int_value(nostd::get<int64_t>(value));
+    }
+    else if (nostd::holds_alternative<unsigned int>(value))
+    {
+        (*map)[key.data()].set_int_value(nostd::get<unsigned int>(value));
+    }
+    else if (nostd::holds_alternative<uint64_t>(value))
+    {
+        (*map)[key.data()].set_int_value(nostd::get<uint64_t>(value));
+    }
+    else if (nostd::holds_alternative<int64_t>(value))
+    {
+        (*map)[key.data()].set_int_value(nostd::get<int64_t>(value));
     } 
     else if (nostd::holds_alternative<nostd::string_view>(value))
     {
         // TODO: Truncate string to 128 bytes
         std::string value_str = std::string(nostd::get<nostd::string_view>(value));
-        (*map)[std::string(key)].mutable_string_value()->set_value(value_str);
+        (*map)[key.data()].mutable_string_value()->set_value(value_str);
     }
 }
 
 
-void Recordable::AddEvent(nostd::string_view name, core::SystemTimestamp timestamp) noexcept
+void Recordable::AddEvent(nostd::string_view name, 
+                          core::SystemTimestamp timestamp,
+                          const opentelemetry::trace::KeyValueIterable &attributes) noexcept
 {
     (void)name;
+    (void)timestamp;
+    (void)attributes;
+}
+
+
+void Recordable::AddLink(
+      opentelemetry::trace::SpanContext span_context,
+      const opentelemetry::trace::KeyValueIterable &attributes) noexcept
+{
+    (void)span_context;
+    (void)attributes;
 }
 
 
