@@ -48,6 +48,17 @@ public:
   void SetDuration(std::chrono::nanoseconds duration) noexcept override;
 
 private:
+  /* Meant for testing purposes */
+  friend class RecordableTestPeer;
+
+  void SetTruncatableString(const int limit,
+                            nostd::string_view string_name,
+                            google::devtools::cloudtrace::v2::TruncatableString* str) const;
+
+  // Taken from the Unilib namespace 
+  // Link: http://35.193.25.4/TensorFlow/models/research/syntaxnet/util/utf8/unilib_utf8_utils.h
+  bool IsTrailByte(char x) const;
+
   google::devtools::cloudtrace::v2::Span span_;
 };
 

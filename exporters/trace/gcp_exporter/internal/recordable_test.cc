@@ -1,11 +1,81 @@
 #include "exporters/trace/gcp_exporter/recordable.h"
 #include <gtest/gtest.h>
 
+
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace exporter
 {
 namespace gcp
 {
+
+using cloudtrace_v2_span = google::devtools::cloudtrace::v2::Span;
+constexpr char kLongRegularString[] = "Some long string to be truncated";
+constexpr char kLongUnicodeString[] = "些长字符串被截断 Некоторая длинная строка, подлежащая усечению";
+
+class RecordableTestPeer: public testing::Test {
+public:
+    void SetTruncatableString(cloudtrace_v2_span& span,
+                              const int limit,
+                              nostd::string_view string_name)
+    {
+        dummy_rec.SetTruncatableString(limit, string_name, span.mutable_display_name());
+    }
+
+private:
+    Recordable dummy_rec;
+};
+
+TEST_F(RecordableTestPeer, TruncatableStringNotEnforced) { 
+    const int max_size_bytes = -1;
+
+    cloudtrace_v2_span span; 
+    SetTruncatableString(span, max_size_bytes, kLongRegularString);
+
+    EXPECT_EQ(kLongRegularString, span.display_name().value()); 
+}
+
+TEST_F(RecordableTestPeer, TruncatableStringRegularWithLimit) { 
+    const int max_size_bytes = 5;
+
+    cloudtrace_v2_span span; 
+    SetTruncatableString(span, max_size_bytes, kLongRegularString);
+
+    EXPECT_EQ(std::string(kLongRegularString).substr(0, max_size_bytes), span.display_name().value()); 
+}
+
+TEST_F(RecordableTestPeer, TruncatableStringZeroLimit) { 
+    const int max_size_bytes = 0;
+
+    cloudtrace_v2_span span; 
+    SetTruncatableString(span, max_size_bytes, kLongRegularString);
+
+    EXPECT_EQ("", span.display_name().value()); 
+}
+
+TEST_F(RecordableTestPeer, TruncatableStringUnicodeMidCharacterBoundary) {
+    // 些 is 3 bytes long, and 长 is 3 bytes long as well,
+    // output should have single symbol 些 and 3 bytes with truncation limit of 4
+    // or 5 bytes.
+    const std::vector<int> max_size_bytes_vector = {4, 5};
+
+    for (int max_size_bytes : max_size_bytes_vector) {
+        cloudtrace_v2_span span; 
+        SetTruncatableString(span, max_size_bytes, kLongUnicodeString);
+
+        EXPECT_EQ("些", span.display_name().value());
+    }
+}
+
+TEST_F(RecordableTestPeer, TruncatableStringUnicodeAtCharacterBoundary) {
+    // 些 is 3 bytes long, output should have that symbol only, and be 3 bytes
+    // when truncating by boundary.
+    const int max_size_bytes = 3;
+
+    cloudtrace_v2_span span; 
+    SetTruncatableString(span, max_size_bytes, kLongUnicodeString);
+
+    EXPECT_EQ("些", span.display_name().value());  
+}
 
 TEST(Recordable, TestSetNonIntAttribute)
 {

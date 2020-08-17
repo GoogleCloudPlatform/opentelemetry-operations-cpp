@@ -1,11 +1,46 @@
 #include "exporters/trace/gcp_exporter/recordable.h"
-
+#include "opentelemetry/context/threadlocal_context.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace exporter
 {
 namespace gcp
 {
+
+constexpr size_t kAttributeStringLen = 256;
+constexpr size_t kAnnotationStringLen = 256;
+constexpr size_t kDisplayNameStringLen = 128;
+
+bool Recordable::IsTrailByte(char x) const
+{
+    return static_cast<signed char>(x) < -0x40;
+}
+
+void Recordable::SetTruncatableString(const int limit,
+                                      nostd::string_view string_name,
+                                      google::devtools::cloudtrace::v2::TruncatableString* str) const 
+{ 
+    if (limit < 0 || string_name.size() < limit) 
+    {
+        str->set_value(string_name.data());
+        str->set_truncated_byte_count(0);
+        return;
+    }
+
+    // If limit points to beginning of utf8 character, truncate at the limit,
+    // backtrack to the beginning of utf8 character otherwise.
+    int truncation_pos = limit;
+
+    while (truncation_pos > 0 && IsTrailByte(string_name[truncation_pos])) 
+    {
+        --truncation_pos;
+    }
+
+    const size_t original_size = string_name.size();
+    auto truncated_str = string_name.substr(0, truncation_pos);
+    str->set_value(std::string(truncated_str));
+    str->set_truncated_byte_count(original_size - str->value().size());
+}
 
 void Recordable::SetIds(trace::TraceId trace_id,
                         trace::SpanId span_id,
@@ -30,7 +65,6 @@ void Recordable::SetIds(trace::TraceId trace_id,
     span_.set_span_id(hex_span);
     span_.set_parent_span_id(hex_parent_span);
 }
-
 
 void Recordable::SetAttribute(nostd::string_view key,
                               const common::AttributeValue &value) noexcept
@@ -64,12 +98,11 @@ void Recordable::SetAttribute(nostd::string_view key,
     } 
     else if (nostd::holds_alternative<nostd::string_view>(value))
     {
-        // TODO: Truncate string to 128 bytes
-        std::string value_str = std::string(nostd::get<nostd::string_view>(value));
-        (*map)[key.data()].mutable_string_value()->set_value(value_str);
+        SetTruncatableString(kAttributeStringLen,
+                             nostd::get<nostd::string_view>(value).data(), 
+                             (*map)[key.data()].mutable_string_value());
     }
 }
-
 
 void Recordable::AddEvent(nostd::string_view name, 
                           core::SystemTimestamp timestamp,
@@ -80,7 +113,6 @@ void Recordable::AddEvent(nostd::string_view name,
     (void)attributes;
 }
 
-
 void Recordable::AddLink(
       opentelemetry::trace::SpanContext span_context,
       const opentelemetry::trace::KeyValueIterable &attributes) noexcept
@@ -89,20 +121,17 @@ void Recordable::AddLink(
     (void)attributes;
 }
 
-
 void Recordable::SetStatus(trace::CanonicalCode code, nostd::string_view description) noexcept
 {
     (void)code;
     (void)description;
 }
 
-
 void Recordable::SetName(nostd::string_view name) noexcept
 {
-    // TODO: Truncate string to 128 bytes
-    span_.mutable_display_name()->set_value(std::string(name));
+    SetTruncatableString(kDisplayNameStringLen, name.data(),
+                         span_.mutable_display_name());
 }
-
 
 void Recordable::SetStartTime(opentelemetry::core::SystemTimestamp start_time) noexcept
 {
@@ -112,7 +141,6 @@ void Recordable::SetStartTime(opentelemetry::core::SystemTimestamp start_time) n
     span_.mutable_start_time()->set_nanos(unix_time_nanoseconds.count()-
         std::chrono::duration_cast<std::chrono::nanoseconds>(seconds).count());
 }
-
 
 void Recordable::SetDuration(std::chrono::nanoseconds duration) noexcept
 {
