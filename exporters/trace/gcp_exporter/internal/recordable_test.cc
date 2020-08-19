@@ -1,4 +1,6 @@
 #include "exporters/trace/gcp_exporter/recordable.h"
+#include "opentelemetry/context/threadlocal_context.h"
+
 #include <gtest/gtest.h>
 
 
@@ -8,73 +10,97 @@ namespace exporter
 namespace gcp
 {
 
-using cloudtrace_v2_span = google::devtools::cloudtrace::v2::Span;
-constexpr char kLongRegularString[] = "Some long string to be truncated";
-constexpr char kLongUnicodeString[] = "些长字符串被截断 Некоторая длинная строка, подлежащая усечению";
+constexpr char kLongRegularString[] = "Some long regular string not meant to be truncated";
 
-class RecordableTestPeer: public testing::Test {
-public:
-    void SetTruncatableString(cloudtrace_v2_span& span,
-                              const int limit,
-                              nostd::string_view string_name)
-    {
-        dummy_rec.SetTruncatableString(limit, string_name, span.mutable_display_name());
-    }
+TEST(Recordable, TruncatableStringNotEnforcedDisplayName) { 
+    Recordable rec;
+    
+    // Test regular string
+    rec.SetName(kLongRegularString); 
+    EXPECT_EQ(kLongRegularString, rec.span().display_name().value()); 
 
-private:
-    Recordable dummy_rec;
-};
+    // Test exactly 128 byte long string
+    const std::string exactly_128_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符串被");
 
-TEST_F(RecordableTestPeer, TruncatableStringNotEnforced) { 
-    const int max_size_bytes = -1;
-
-    cloudtrace_v2_span span; 
-    SetTruncatableString(span, max_size_bytes, kLongRegularString);
-
-    EXPECT_EQ(kLongRegularString, span.display_name().value()); 
+    ASSERT_EQ(128, exactly_128_byte_long_string.size());
+                                
+    rec.SetName(exactly_128_byte_long_string);
+    EXPECT_EQ(exactly_128_byte_long_string, rec.span().display_name().value());
 }
 
-TEST_F(RecordableTestPeer, TruncatableStringRegularWithLimit) { 
-    const int max_size_bytes = 5;
+TEST(Recordable, TruncatableStringEnforcedDisplayName) { 
+    Recordable rec;
+    
+    const std::string exactly_127_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符");
+    const std::string exactly_129_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符д");  
+    const std::string exactly_130_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符断");
 
-    cloudtrace_v2_span span; 
-    SetTruncatableString(span, max_size_bytes, kLongRegularString);
+    ASSERT_EQ(127, exactly_127_byte_long_string.size());
+    ASSERT_EQ(129, exactly_129_byte_long_string.size());
+    ASSERT_EQ(130, exactly_130_byte_long_string.size());
+    
+    // The last symbols of the 129 and 130 byte long strings are "д" and "断" respectively.
+    // "д" is 2 bytes long and "断" is 3 bytes long.
+    // Thus, the display name should be truncated to `exactly_127_byte_long_string` 
+    // to conform to limit of <= 128 bytes.
+    rec.SetName(exactly_129_byte_long_string); 
+    EXPECT_EQ(exactly_127_byte_long_string, rec.span().display_name().value()); 
 
-    EXPECT_EQ(std::string(kLongRegularString).substr(0, max_size_bytes), span.display_name().value()); 
+    rec.SetName(exactly_130_byte_long_string); 
+    EXPECT_EQ(exactly_127_byte_long_string, rec.span().display_name().value()); 
 }
 
-TEST_F(RecordableTestPeer, TruncatableStringZeroLimit) { 
-    const int max_size_bytes = 0;
+TEST(Recordable, TruncatableStringNotEnforcedAttributeString) { 
+    Recordable rec;
+    
+    // Test Regular String
+    rec.SetAttribute("string_key_1", common::AttributeValue(kLongRegularString));
 
-    cloudtrace_v2_span span; 
-    SetTruncatableString(span, max_size_bytes, kLongRegularString);
+    // Test exactly 256 byte long string
+    const char kExactly256byteUnicodeString[] = "些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                 "些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                 "些长字符串被截断 Некот";
 
-    EXPECT_EQ("", span.display_name().value()); 
+    rec.SetAttribute("string_key_2", common::AttributeValue(kExactly256byteUnicodeString));
+
+    auto attr_map = rec.span().attributes().attribute_map();
+    
+    EXPECT_EQ(kLongRegularString, attr_map["string_key_1"].string_value().value());   
+    EXPECT_EQ(kExactly256byteUnicodeString, attr_map["string_key_2"].string_value().value());
 }
 
-TEST_F(RecordableTestPeer, TruncatableStringUnicodeMidCharacterBoundary) {
-    // 些 is 3 bytes long, and 长 is 3 bytes long as well,
-    // output should have single symbol 些 and 3 bytes with truncation limit of 4
-    // or 5 bytes.
-    const std::vector<int> max_size_bytes_vector = {4, 5};
+TEST(Recordable, TruncatableStringEnforcedAttributeString) { 
+    Recordable rec;
+    
+    const std::string exactly_255_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符 些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符");
+    const std::string exactly_257_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符 些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符д");  
+    const std::string exactly_258_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符 些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符断");
 
-    for (int max_size_bytes : max_size_bytes_vector) {
-        cloudtrace_v2_span span; 
-        SetTruncatableString(span, max_size_bytes, kLongUnicodeString);
+    ASSERT_EQ(255, exactly_255_byte_long_string.size());
+    ASSERT_EQ(257, exactly_257_byte_long_string.size());
+    ASSERT_EQ(258, exactly_258_byte_long_string.size());
+    
+    // The last symbols of the 257 and 258 byte long strings are "д" and "断" respectively.
+    // "д" is 2 bytes long and "断" is 3 bytes long.
+    // Thus, the attribute string should be truncated to `exactly_255_byte_long_string` 
+    // to conform to limit of <= 256 bytes.
+    rec.SetAttribute("string_key_1", common::AttributeValue(exactly_257_byte_long_string));
+    rec.SetAttribute("string_key_2", common::AttributeValue(exactly_258_byte_long_string));
 
-        EXPECT_EQ("些", span.display_name().value());
-    }
-}
+    auto attr_map = rec.span().attributes().attribute_map();
 
-TEST_F(RecordableTestPeer, TruncatableStringUnicodeAtCharacterBoundary) {
-    // 些 is 3 bytes long, output should have that symbol only, and be 3 bytes
-    // when truncating by boundary.
-    const int max_size_bytes = 3;
-
-    cloudtrace_v2_span span; 
-    SetTruncatableString(span, max_size_bytes, kLongUnicodeString);
-
-    EXPECT_EQ("些", span.display_name().value());  
+    EXPECT_EQ(exactly_255_byte_long_string, attr_map["string_key_1"].string_value().value());   
+    EXPECT_EQ(exactly_255_byte_long_string, attr_map["string_key_2"].string_value().value());
 }
 
 TEST(Recordable, TestSetNonIntAttribute)

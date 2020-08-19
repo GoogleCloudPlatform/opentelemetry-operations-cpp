@@ -1,5 +1,4 @@
 #include "exporters/trace/gcp_exporter/recordable.h"
-#include "opentelemetry/context/threadlocal_context.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace exporter
@@ -8,17 +7,19 @@ namespace gcp
 {
 
 constexpr size_t kAttributeStringLen = 256;
-constexpr size_t kAnnotationStringLen = 256;
 constexpr size_t kDisplayNameStringLen = 128;
 
-bool Recordable::IsTrailByte(char x) const
+
+// Taken from the Unilib namespace 
+// Link: http://35.193.25.4/TensorFlow/models/research/syntaxnet/util/utf8/unilib_utf8_utils.h
+bool IsTrailByte(char x)
 {
     return static_cast<signed char>(x) < -0x40;
 }
 
-void Recordable::SetTruncatableString(const int limit,
-                                      nostd::string_view string_name,
-                                      google::devtools::cloudtrace::v2::TruncatableString* str) const 
+void SetTruncatableString(const int limit,
+                          nostd::string_view string_name,
+                          google::devtools::cloudtrace::v2::TruncatableString* str) 
 { 
     if (limit < 0 || string_name.size() < limit) 
     {
@@ -99,7 +100,7 @@ void Recordable::SetAttribute(nostd::string_view key,
     else if (nostd::holds_alternative<nostd::string_view>(value))
     {
         SetTruncatableString(kAttributeStringLen,
-                             nostd::get<nostd::string_view>(value).data(), 
+                             nostd::get<nostd::string_view>(value), 
                              (*map)[key.data()].mutable_string_value());
     }
 }
@@ -129,7 +130,7 @@ void Recordable::SetStatus(trace::CanonicalCode code, nostd::string_view descrip
 
 void Recordable::SetName(nostd::string_view name) noexcept
 {
-    SetTruncatableString(kDisplayNameStringLen, name.data(),
+    SetTruncatableString(kDisplayNameStringLen, name,
                          span_.mutable_display_name());
 }
 
