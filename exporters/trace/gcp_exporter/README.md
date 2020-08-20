@@ -1,0 +1,1 @@
+Please refer to the [OpenCensus Stackdriver Stats Exporter instruction](https://github.com/census-instrumentation/opencensus-cpp/blob/master/opencensus/exporters/stats/stackdriver/README.md) for setup

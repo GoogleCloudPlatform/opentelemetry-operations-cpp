@@ -1,11 +1,107 @@
 #include "exporters/trace/gcp_exporter/recordable.h"
+#include "opentelemetry/context/threadlocal_context.h"
+
 #include <gtest/gtest.h>
+
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace exporter
 {
 namespace gcp
 {
+
+constexpr char kLongRegularString[] = "Some long regular string not meant to be truncated";
+
+TEST(Recordable, TruncatableStringNotEnforcedDisplayName) { 
+    Recordable rec;
+    
+    // Test regular string
+    rec.SetName(kLongRegularString); 
+    EXPECT_EQ(kLongRegularString, rec.span().display_name().value()); 
+
+    // Test exactly 128 byte long string
+    const std::string exactly_128_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符串被");
+
+    ASSERT_EQ(128, exactly_128_byte_long_string.size());
+                                
+    rec.SetName(exactly_128_byte_long_string);
+    EXPECT_EQ(exactly_128_byte_long_string, rec.span().display_name().value());
+}
+
+TEST(Recordable, TruncatableStringEnforcedDisplayName) { 
+    Recordable rec;
+    
+    const std::string exactly_127_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符");
+    const std::string exactly_129_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符д");  
+    const std::string exactly_130_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符断");
+
+    ASSERT_EQ(127, exactly_127_byte_long_string.size());
+    ASSERT_EQ(129, exactly_129_byte_long_string.size());
+    ASSERT_EQ(130, exactly_130_byte_long_string.size());
+    
+    // The last symbols of the 129 and 130 byte long strings are "д" and "断" respectively.
+    // "д" is 2 bytes long and "断" is 3 bytes long.
+    // Thus, the display name should be truncated to `exactly_127_byte_long_string` 
+    // to conform to limit of <= 128 bytes.
+    rec.SetName(exactly_129_byte_long_string); 
+    EXPECT_EQ(exactly_127_byte_long_string, rec.span().display_name().value()); 
+
+    rec.SetName(exactly_130_byte_long_string); 
+    EXPECT_EQ(exactly_127_byte_long_string, rec.span().display_name().value()); 
+}
+
+TEST(Recordable, TruncatableStringNotEnforcedAttributeString) { 
+    Recordable rec;
+    
+    // Test Regular String
+    rec.SetAttribute("string_key_1", common::AttributeValue(kLongRegularString));
+
+    // Test exactly 256 byte long string
+    const char kExactly256byteUnicodeString[] = "些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                 "些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                 "些长字符串被截断 Некот";
+
+    rec.SetAttribute("string_key_2", common::AttributeValue(kExactly256byteUnicodeString));
+
+    auto attr_map = rec.span().attributes().attribute_map();
+    
+    EXPECT_EQ(kLongRegularString, attr_map["string_key_1"].string_value().value());   
+    EXPECT_EQ(kExactly256byteUnicodeString, attr_map["string_key_2"].string_value().value());
+}
+
+TEST(Recordable, TruncatableStringEnforcedAttributeString) { 
+    Recordable rec;
+    
+    const std::string exactly_255_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符 些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符");
+    const std::string exactly_257_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符 些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符д");  
+    const std::string exactly_258_byte_long_string("些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符 些长字符串被截断 Некоторая длинная строка, подлежащая усечению"
+                                                   "些长字符а符断");
+
+    ASSERT_EQ(255, exactly_255_byte_long_string.size());
+    ASSERT_EQ(257, exactly_257_byte_long_string.size());
+    ASSERT_EQ(258, exactly_258_byte_long_string.size());
+    
+    // The last symbols of the 257 and 258 byte long strings are "д" and "断" respectively.
+    // "д" is 2 bytes long and "断" is 3 bytes long.
+    // Thus, the attribute string should be truncated to `exactly_255_byte_long_string` 
+    // to conform to limit of <= 256 bytes.
+    rec.SetAttribute("string_key_1", common::AttributeValue(exactly_257_byte_long_string));
+    rec.SetAttribute("string_key_2", common::AttributeValue(exactly_258_byte_long_string));
+
+    auto attr_map = rec.span().attributes().attribute_map();
+
+    EXPECT_EQ(exactly_255_byte_long_string, attr_map["string_key_1"].string_value().value());   
+    EXPECT_EQ(exactly_255_byte_long_string, attr_map["string_key_2"].string_value().value());
+}
 
 TEST(Recordable, TestSetNonIntAttribute)
 {
