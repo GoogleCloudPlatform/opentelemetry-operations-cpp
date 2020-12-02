@@ -1,5 +1,4 @@
 #include "opentelemetry/trace/provider.h"
-#include "opentelemetry/context/threadlocal_context.h"
 
 namespace trace = opentelemetry::trace;
 namespace nostd = opentelemetry::nostd;
