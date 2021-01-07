@@ -107,7 +107,7 @@ void Recordable::SetAttribute(nostd::string_view key,
 
 void Recordable::AddEvent(nostd::string_view name, 
                           core::SystemTimestamp timestamp,
-                          const opentelemetry::trace::KeyValueIterable &attributes) noexcept
+                          const opentelemetry::common::KeyValueIterable &attributes) noexcept
 {
     (void)name;
     (void)timestamp;
@@ -115,8 +115,8 @@ void Recordable::AddEvent(nostd::string_view name,
 }
 
 void Recordable::AddLink(
-      opentelemetry::trace::SpanContext span_context,
-      const opentelemetry::trace::KeyValueIterable &attributes) noexcept
+      const opentelemetry::trace::SpanContext &span_context,
+      const opentelemetry::common::KeyValueIterable &attributes) noexcept
 {
     (void)span_context;
     (void)attributes;

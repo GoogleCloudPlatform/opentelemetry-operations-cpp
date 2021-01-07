@@ -32,11 +32,11 @@ public:
   void AddEvent(
       nostd::string_view name,
       core::SystemTimestamp timestamp,
-      const opentelemetry::trace::KeyValueIterable &attributes) noexcept override;
+      const opentelemetry::common::KeyValueIterable &attributes) noexcept override;
 
   void AddLink(
-      opentelemetry::trace::SpanContext span_context,
-      const opentelemetry::trace::KeyValueIterable &attributes) noexcept override;
+      const opentelemetry::trace::SpanContext &span_context,
+      const opentelemetry::common::KeyValueIterable &attributes) noexcept override;
 
   void SetStatus(opentelemetry::trace::CanonicalCode code,
                          nostd::string_view description) noexcept override;
